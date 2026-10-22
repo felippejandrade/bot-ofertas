@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bot de Ofertas</title>
+<style>
+	:root {
+		--bg: #f4f6f8; --card: #fff; --text: #1d2329; --muted: #66717d; --line: #e2e6ea;
+		--accent: #1f8f5f; --accent-soft: #e6f4ee; --warn: #b7791f; --danger: #c0392b;
+	}
+	@media (prefers-color-scheme: dark) {
+		:root { --bg: #14181c; --card: #1d2227; --text: #e8ecef; --muted: #98a3ad; --line: #2e353c; --accent-soft: #1d3a2e; }
+	}
+	* { box-sizing: border-box; }
+	body { margin: 0; font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background: var(--bg); color: var(--text); }
+	header { padding: 16px; border-bottom: 1px solid var(--line); background: var(--card); display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+	header h1 { font-size: 18px; margin: 0; }
+	main { max-width: 860px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; }
+	section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+	section h2 { font-size: 16px; margin: 0 0 12px; }
+	label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+	input[type=text], input[type=password], input[type=number], select, textarea {
+		width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit;
+	}
+	textarea { min-height: 110px; resize: vertical; }
+	button { padding: 9px 14px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: #fff; font: inherit; cursor: pointer; }
+	button.secondary { background: transparent; color: var(--accent); }
+	button.danger { border-color: var(--danger); background: transparent; color: var(--danger); }
+	.row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+	@media (max-width: 600px) { .row { grid-template-columns: 1fr; } }
+	.muted { color: var(--muted); font-size: 13px; }
+	.pill { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 13px; background: var(--accent-soft); color: var(--accent); }
+	.pill.off { background: var(--bg); color: var(--muted); }
+	.groups { max-height: 280px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
+	.group { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid var(--line); cursor: pointer; }
+	.group:last-child { border-bottom: 0; }
+	.group input { width: auto; }
+	.check { display: flex; align-items: center; gap: 8px; margin-top: 12px; color: var(--text); font-size: 15px; }
+	.check input { width: auto; }
+	.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+	.qr img { width: 260px; max-width: 100%; background: #fff; padding: 8px; border-radius: 8px; }
+	pre { white-space: pre-wrap; word-break: break-word; background: var(--bg); padding: 10px; border-radius: 8px; font-size: 13px; margin: 8px 0 0; }
+	.hist { border-top: 1px solid var(--line); padding: 10px 0; }
+	.hist:first-child { border-top: 0; }
+	.st-enviado { color: var(--accent); } .st-ignorado { color: var(--warn); } .st-erro { color: var(--danger); }
+	#toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 8px; display: none; max-width: calc(100% - 32px); }
+	.hidden { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+	<h1>Bot de Ofertas</h1>
+	<span id="botStatus" class="pill off">Desligado</span>
+</header>
+
+<main id="login" class="hidden">
+	<section>
+		<h2>Entrar</h2>
+		<label for="senha">Senha do painel</label>
+		<input id="senha" type="password" autocomplete="current-password">
+		<div class="actions"><button onclick="login()">Entrar</button></div>
+	</section>
+</main>
+
+<main id="app" class="hidden">
+	<section>
+		<h2>1. WhatsApp</h2>
+		<div id="waStatus" class="muted">Carregando…</div>
+		<div id="qrBox" class="qr hidden">
+			<p>No celular, abra o WhatsApp › Aparelhos conectados › Conectar aparelho e leia o código:</p>
+			<img id="qr" alt="QR Code">
+		</div>
+		<div class="actions hidden" id="waActions">
+			<button class="danger" onclick="logoutWa()">Desconectar este número</button>
+		</div>
+	</section>
+
+	<section>
+		<h2>2. Grupos</h2>
+		<p class="muted">Marque até 2 grupos de onde as ofertas serão copiadas e escolha o seu grupo de destino.</p>
+		<input id="filtro" type="text" placeholder="Buscar grupo…" oninput="renderGroups()">
+		<label>Grupos de origem (máx. 2)</label>
+		<div id="groups" class="groups"><div class="group muted">Conecte o WhatsApp para ver os grupos.</div></div>
+		<label for="target">Grupo de destino (o seu grupo)</label>
+		<select id="target"></select>
+		<div class="actions"><button class="secondary" onclick="loadGroups(true)">Atualizar lista</button></div>
+	</section>
+
+	<section>
+		<h2>3. Links de afiliado</h2>
+		<label class="check"><input type="checkbox" id="mlEnabled"> Mercado Livre</label>
+		<div class="row">
+			<div><label for="mattWord">matt_word (seu apelido)</label><input id="mattWord" type="text" placeholder="ex.: anfe5611342"></div>
+			<div><label for="mattTool">matt_tool (seu número)</label><input id="mattTool" type="text" placeholder="ex.: 27164927"></div>
+		</div>
+		<label class="check"><input type="checkbox" id="amzEnabled"> Amazon</label>
+		<label for="amzTag">Tag da Amazon</label>
+		<input id="amzTag" type="text" placeholder="ex.: seunome-20">
+	</section>
+
+	<section>
+		<h2>4. Envio</h2>
+		<div class="row">
+			<div><label for="delay">Intervalo mínimo entre envios (segundos)</label><input id="delay" type="number" min="5"></div>
+			<div><label for="dedup">Não repetir o mesmo produto por (horas)</label><input id="dedup" type="number" min="0"></div>
+		</div>
+		<label class="check"><input type="checkbox" id="removeInvites"> Remover links de convite de outros grupos</label>
+		<label for="footer">Texto extra no final de cada oferta (opcional)</label>
+		<textarea id="footer" placeholder="ex.: 🔥 Siga nosso grupo para mais ofertas!" style="min-height:60px"></textarea>
+		<label class="check"><input type="checkbox" id="enabled"> <strong>Bot ligado</strong> (copiar e enviar automaticamente)</label>
+		<div class="actions">
+			<button onclick="saveConfig()">Salvar</button>
+			<button class="secondary" onclick="sendTest()">Enviar mensagem de teste ao destino</button>
+		</div>
+	</section>
+
+	<section>
+		<h2>5. Testar conversão</h2>
+		<p class="muted">Cole um link ou uma oferta inteira de um grupo. Nada é enviado.</p>
+		<textarea id="testIn"></textarea>
+		<div class="actions"><button class="secondary" onclick="testConvert()">Testar</button></div>
+		<pre id="testOut" class="hidden"></pre>
+	</section>
+
+	<section>
+		<h2>Histórico</h2>
+		<div id="history" class="muted">Nenhuma oferta processada ainda.</div>
+	</section>
+</main>
+
+<div id="toast"></div>
+
+<script>
+	let config = null
+	let groups = []
+
+	const $ = id => document.getElementById(id)
+	const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+
+	function toast(msg) {
+		const t = $('toast')
+		t.textContent = msg
+		t.style.display = 'block'
+		clearTimeout(t._timer)
+		t._timer = setTimeout(() => (t.style.display = 'none'), 3500)
+	}
+
+	async function api(path, body) {
+		const res = await fetch('/api' + path, body === undefined ? {} : { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+		if (res.status === 401 && path !== '/login') { showLogin(); throw new Error('Faça login') }
+		const data = await res.json()
+		if (!res.ok) throw new Error(data.erro || 'Erro')
+		return data
+	}
+
+	function showLogin() { $('login').classList.remove('hidden'); $('app').classList.add('hidden') }
+
+	async function login() {
+		try {
+			await api('/login', { senha: $('senha').value })
+			$('login').classList.add('hidden')
+			start()
+		} catch (e) { toast(e.message) }
+	}
+	$('senha').addEventListener('keydown', e => e.key === 'Enter' && login())
+
+	async function start() {
+		try { config = await api('/config') } catch { return }
+		$('app').classList.remove('hidden')
+		fillConfig()
+		pollStatus()
+		loadHistory()
+		setInterval(pollStatus, 3000)
+		setInterval(loadHistory, 10000)
+	}
+
+	let lastStatus = null
+	async function pollStatus() {
+		const s = await api('/status').catch(() => null)
+		if (!s) return
+		const labels = { conectado: `Conectado${s.numero ? ' (' + s.numero + ')' : ''}`, aguardando_qr: 'Aguardando leitura do QR Code', conectando: 'Conectando…', desconectado: 'Desconectado, tentando reconectar…' }
+		$('waStatus').textContent = labels[s.status] || s.status
+		$('qrBox').classList.toggle('hidden', !s.qr)
+		if (s.qr) $('qr').src = s.qr
+		$('waActions').classList.toggle('hidden', s.status !== 'conectado')
+		if (s.status === 'conectado' && lastStatus !== 'conectado') loadGroups()
+		lastStatus = s.status
+	}
+
+	async function loadGroups(manual) {
+		groups = await api('/groups').catch(() => [])
+		renderGroups()
+		if (manual) toast(`${groups.length} grupos encontrados`)
+	}
+
+	function renderGroups() {
+		const filter = $('filtro').value.toLowerCase()
+		const selected = new Set(config.sourceGroups.map(g => g.id))
+		const list = groups.filter(g => g.name.toLowerCase().includes(filter) || selected.has(g.id))
+		$('groups').innerHTML = list.length
+			? list.map(g => `<label class="group"><input type="checkbox" value="${esc(g.id)}" ${selected.has(g.id) ? 'checked' : ''} onchange="toggleSource(this)"> <span>${esc(g.name)} <span class="muted">· ${g.size} pessoas</span></span></label>`).join('')
+			: '<div class="group muted">Nenhum grupo encontrado.</div>'
+		const known = groups.some(g => g.id === config.targetGroup?.id)
+		$('target').innerHTML = '<option value="">Selecione…</option>' +
+			(config.targetGroup && !known ? `<option value="${esc(config.targetGroup.id)}" selected>${esc(config.targetGroup.name)}</option>` : '') +
+			groups.map(g => `<option value="${esc(g.id)}" ${g.id === config.targetGroup?.id ? 'selected' : ''}>${esc(g.name)}</option>`).join('')
+	}
+
+	function toggleSource(input) {
+		if (input.checked) {
+			if (config.sourceGroups.length >= 2) { input.checked = false; return toast('Máximo de 2 grupos de origem') }
+			const g = groups.find(g => g.id === input.value)
+			config.sourceGroups.push({ id: g.id, name: g.name })
+		} else {
+			config.sourceGroups = config.sourceGroups.filter(g => g.id !== input.value)
+		}
+	}
+
+	function fillConfig() {
+		$('mlEnabled').checked = config.mercadoLivre.enabled
+		$('mattWord').value = config.mercadoLivre.mattWord
+		$('mattTool').value = config.mercadoLivre.mattTool
+		$('amzEnabled').checked = config.amazon.enabled
+		$('amzTag').value = config.amazon.tag
+		$('delay').value = config.delaySeconds
+		$('dedup').value = config.dedupHours
+		$('removeInvites').checked = config.removeGroupInvites
+		$('footer').value = config.footer
+		$('enabled').checked = config.enabled
+		updateBadge()
+		renderGroups()
+	}
+
+	function updateBadge() {
+		$('botStatus').textContent = config.enabled ? 'Ligado' : 'Desligado'
+		$('botStatus').classList.toggle('off', !config.enabled)
+	}
+
+	async function saveConfig() {
+		const targetId = $('target').value
+		const target = groups.find(g => g.id === targetId) || (config.targetGroup?.id === targetId ? config.targetGroup : null)
+		try {
+			config = await api('/config', {
+				sourceGroups: config.sourceGroups,
+				targetGroup: target ? { id: target.id, name: target.name } : null,
+				mercadoLivre: { enabled: $('mlEnabled').checked, mattWord: $('mattWord').value, mattTool: $('mattTool').value },
+				amazon: { enabled: $('amzEnabled').checked, tag: $('amzTag').value },
+				delaySeconds: $('delay').value,
+				dedupHours: $('dedup').value,
+				removeGroupInvites: $('removeInvites').checked,
+				footer: $('footer').value,
+				enabled: $('enabled').checked
+			})
+			fillConfig()
+			if (config.enabled && (!config.sourceGroups.length || !config.targetGroup)) toast('Salvo, mas falta escolher os grupos de origem e destino')
+			else toast('Configurações salvas')
+		} catch (e) { toast(e.message) }
+	}
+
+	async function sendTest() {
+		try { await api('/send-test', {}); toast('Mensagem de teste enviada') } catch (e) { toast(e.message) }
+	}
+
+	async function testConvert() {
+		const out = $('testOut')
+		out.classList.remove('hidden')
+		out.textContent = 'Testando…'
+		try {
+			const r = await api('/test', { texto: $('testIn').value })
+			if (r.link) {
+				out.textContent = r.link.ok ? `✅ Link convertido:\n${r.link.url}` : `❌ ${r.link.reason}${r.link.finalUrl ? '\nLink final: ' + r.link.finalUrl : ''}`
+			} else {
+				const m = r.mensagem
+				out.textContent = (m.send ? '✅ Seria enviada assim:\n\n' : '⚠️ Esta mensagem não seria enviada.\n\n') + m.text +
+					(m.failed.length ? '\n\nProblemas:\n' + m.failed.map(f => `• ${f.url}: ${f.reason}`).join('\n') : '')
+			}
+		} catch (e) { out.textContent = e.message }
+	}
+
+	async function loadHistory() {
+		const items = await api('/history').catch(() => null)
+		if (!items) return
+		$('history').innerHTML = items.length
+			? items.map(h => `<div class="hist"><strong class="st-${esc(h.status)}">${esc(h.status)}</strong> <span class="muted">· ${new Date(h.at).toLocaleString('pt-BR')} · ${esc(h.source)}${h.reason ? ' · ' + esc(h.reason) : ''}</span><pre>${esc(h.text)}</pre></div>`).join('')
+			: 'Nenhuma oferta processada ainda.'
+	}
+
+	async function logoutWa() {
+		if (!confirm('Desconectar este número do bot?')) return
+		await api('/logout', {}).catch(e => toast(e.message))
+	}
+
+	start().catch(showLogin)
+</script>
+</body>
+</html>
