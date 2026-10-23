@@ -1,4 +1,5 @@
 // Encontra links em uma mensagem e troca pelos links de afiliado configurados.
+import { applyTemplate } from './template.js'
 
 const URL_REGEX = /https?:\/\/[^\s<>"']+/gi
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36'
@@ -197,9 +198,13 @@ export async function convertMessage(text, config) {
 		}
 	}
 
-	if (config.footer?.trim()) output = output.trimEnd() + '\n\n' + config.footer.trim()
 	const send = converted.length > 0 && failed.length === 0
-	return { send, text: output.trim(), converted, failed }
+	// Mensagem padrão só para ofertas de um produto; se não reconhecer título e preço, mantém o texto original
+	const templated = send && converted.length === 1 && config.template?.enabled ? applyTemplate(text, converted[0].to, config.template.text) : null
+	if (templated) return { send, text: templated, converted, failed, usedTemplate: true }
+
+	if (config.footer?.trim()) output = output.trimEnd() + '\n\n' + config.footer.trim()
+	return { send, text: output.trim(), converted, failed, usedTemplate: false }
 }
 
 function removeLineWith(text, url) {

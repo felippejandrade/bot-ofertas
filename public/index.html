@@ -106,7 +106,10 @@
 			<div><label for="dedup">Não repetir o mesmo produto por (horas)</label><input id="dedup" type="number" min="0"></div>
 		</div>
 		<label class="check"><input type="checkbox" id="removeInvites"> Remover links de convite de outros grupos</label>
-		<label for="footer">Texto extra no final de cada oferta (opcional)</label>
+		<label class="check"><input type="checkbox" id="tplEnabled"> Usar mensagem padrão</label>
+		<p class="muted">Campos disponíveis: <code>{titulo}</code> <code>{preco_de}</code> <code>{preco}</code> <code>{cupom}</code> <code>{link}</code>. Linhas com campo vazio (ex.: oferta sem cupom) somem. Se o bot não reconhecer título e preço, ele envia o texto original com o seu link.</p>
+		<textarea id="tplText" style="min-height:260px;font-family:ui-monospace,monospace;font-size:13px"></textarea>
+		<label for="footer">Texto extra no final, quando a mensagem padrão não é usada (opcional)</label>
 		<textarea id="footer" placeholder="ex.: 🔥 Siga nosso grupo para mais ofertas!" style="min-height:60px"></textarea>
 		<label class="check"><input type="checkbox" id="enabled"> <strong>Bot ligado</strong> (copiar e enviar automaticamente)</label>
 		<div class="actions">
@@ -227,6 +230,8 @@
 		$('dedup').value = config.dedupHours
 		$('removeInvites').checked = config.removeGroupInvites
 		$('footer').value = config.footer
+		$('tplEnabled').checked = config.template.enabled
+		$('tplText').value = config.template.text
 		$('enabled').checked = config.enabled
 		updateBadge()
 		renderGroups()
@@ -250,6 +255,7 @@
 				dedupHours: $('dedup').value,
 				removeGroupInvites: $('removeInvites').checked,
 				footer: $('footer').value,
+				template: { enabled: $('tplEnabled').checked, text: $('tplText').value },
 				enabled: $('enabled').checked
 			})
 			fillConfig()
@@ -272,7 +278,7 @@
 				out.textContent = r.link.ok ? `✅ Link convertido:\n${r.link.url}` : `❌ ${r.link.reason}${r.link.finalUrl ? '\nLink final: ' + r.link.finalUrl : ''}`
 			} else {
 				const m = r.mensagem
-				out.textContent = (m.send ? '✅ Seria enviada assim:\n\n' : '⚠️ Esta mensagem não seria enviada.\n\n') + m.text +
+				out.textContent = (m.send ? `✅ Seria enviada assim${m.usedTemplate ? ' (mensagem padrão)' : ' (texto original)'}:\n\n` : '⚠️ Esta mensagem não seria enviada.\n\n') + m.text +
 					(m.failed.length ? '\n\nProblemas:\n' + m.failed.map(f => `• ${f.url}: ${f.reason}`).join('\n') : '')
 			}
 		} catch (e) { out.textContent = e.message }

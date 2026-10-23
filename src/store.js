@@ -1,6 +1,7 @@
 // Configuração e histórico salvos em arquivos JSON dentro da pasta data/.
 import fs from 'node:fs'
 import path from 'node:path'
+import { DEFAULT_TEMPLATE } from './template.js'
 
 export const DATA_DIR = process.env.DATA_DIR || path.resolve('data')
 fs.mkdirSync(DATA_DIR, { recursive: true })
@@ -17,7 +18,8 @@ const DEFAULT_CONFIG = {
 	delaySeconds: 30, // intervalo mínimo entre envios
 	dedupHours: 12, // não repete o mesmo produto dentro desse período
 	removeGroupInvites: true,
-	footer: ''
+	footer: '', // usado só quando a mensagem padrão está desligada ou não se aplica
+	template: { enabled: true, text: DEFAULT_TEMPLATE }
 }
 
 const MAX_SOURCE_GROUPS = 2
@@ -45,7 +47,8 @@ function mergeConfig(base, patch) {
 		...base,
 		...patch,
 		mercadoLivre: { ...base.mercadoLivre, ...patch.mercadoLivre },
-		amazon: { ...base.amazon, ...patch.amazon }
+		amazon: { ...base.amazon, ...patch.amazon },
+		template: { ...base.template, ...patch.template }
 	}
 }
 
@@ -59,6 +62,7 @@ export function updateConfig(patch) {
 	next.mercadoLivre.mattWord = String(next.mercadoLivre.mattWord || '').trim()
 	next.mercadoLivre.mattTool = String(next.mercadoLivre.mattTool || '').trim()
 	next.amazon.tag = String(next.amazon.tag || '').trim()
+	if (!String(next.template.text || '').trim()) next.template.text = DEFAULT_TEMPLATE
 	config = next
 	writeJson(CONFIG_FILE, config)
 	return config
