@@ -62,7 +62,15 @@ export async function connectMeli() {
 	}
 	session = { status: 'aguardando_login', erro: null }
 	const { default: puppeteer } = await import('puppeteer-core')
-	const browser = await puppeteer.launch({ executablePath, headless: false, userDataDir: PROFILE_DIR, defaultViewport: null, args: ['--start-maximized'] })
+	// Sem as marcas de "navegador automatizado": o antibot do ML bloqueia o login quando as vê
+	const browser = await puppeteer.launch({
+		executablePath,
+		headless: false,
+		userDataDir: PROFILE_DIR,
+		defaultViewport: null,
+		ignoreDefaultArgs: ['--enable-automation'],
+		args: ['--start-maximized', '--disable-blink-features=AutomationControlled']
+	})
 	try {
 		const page = (await browser.pages())[0] || (await browser.newPage())
 		await page.goto('https://www.mercadolivre.com.br/afiliados', { waitUntil: 'domcontentloaded' }).catch(() => {})
