@@ -11,7 +11,14 @@ const routes = {
 	},
 	'https://produto.mercadolivre.com.br/MLB-999999999-creatina-_JM?matt_word=outro&matt_tool=111': { status: 200, html: '' },
 	'https://amzn.to/xyz': { status: 302, location: 'https://www.amazon.com.br/Creatina-Max/dp/B0ABCDEF12?tag=outro-20&psc=1' },
-	'https://www.amazon.com.br/Creatina-Max/dp/B0ABCDEF12?tag=outro-20&psc=1': { status: 200, html: '' }
+	'https://www.amazon.com.br/Creatina-Max/dp/B0ABCDEF12?tag=outro-20&psc=1': { status: 200, html: '' },
+	'https://meli.la/bloq': { status: 302, location: 'https://www.mercadolivre.com.br/registration?registrationType=negative_traffic&confirmation_url=https%3A%2F%2Fproduto.mercadolivre.com.br%2FMLB-4283155633-true-protein-_JM%3Fmatt_word%3Doutro' },
+	'https://produto.mercadolivre.com.br/MLB-4283155633-true-protein-_JM': { status: 302, location: 'https://www.mercadolivre.com.br/registration?registrationType=negative_traffic' },
+	'https://meli.la/social2': { status: 301, location: 'https://www.mercadolivre.com.br/social/outro?ref=ABC' },
+	'https://www.mercadolivre.com.br/social/outro?ref=ABC': {
+		status: 200,
+		html: '<a href="https://www.mercadolivre.com.br/registration?confirmation_url=https://produto.mercadolivre.com.br/MLB-111111111-x">x</a><a href="https://produto.mercadolivre.com.br/MLB-222222222-whey-_JM">y</a>'
+	}
 }
 
 globalThis.fetch = async (url, opts = {}) => {
@@ -59,4 +66,19 @@ test('não envia se não conseguir converter', async () => {
 test('mensagem sem link de marketplace não é enviada', async () => {
 	const r = await convertMessage('Bom dia pessoal!', config)
 	assert.equal(r.send, false)
+})
+
+test('antibot manda para cadastro: usa o produto de dentro do redirecionamento', async () => {
+	const r = await convertMessage('Whey https://meli.la/bloq', config)
+	assert.equal(r.converted[0].to, 'https://produto.mercadolivre.com.br/MLB-4283155633-true-protein-_JM?matt_word=anfe5611342&matt_tool=27164927')
+})
+
+test('antibot sem produto no redirecionamento: mantém o link original do produto', async () => {
+	const r = await convertMessage('Whey https://produto.mercadolivre.com.br/MLB-4283155633-true-protein-_JM', config)
+	assert.equal(r.converted[0].to, 'https://produto.mercadolivre.com.br/MLB-4283155633-true-protein-_JM?matt_word=anfe5611342&matt_tool=27164927')
+})
+
+test('página social ignora links de cadastro', async () => {
+	const r = await convertMessage('Whey https://meli.la/social2', config)
+	assert.equal(r.converted[0].to, 'https://produto.mercadolivre.com.br/MLB-222222222-whey-_JM?matt_word=anfe5611342&matt_tool=27164927')
 })

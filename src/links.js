@@ -92,13 +92,37 @@ const isMlProductUrl = url => {
 	return hostMatches(hostname, ML_HOSTS) && ML_ITEM_REGEX.test(pathname)
 }
 
+// O antibot do ML às vezes manda para login/cadastro; o produto vem dentro do redirecionamento.
+const AUTH_PATH = /^\/(registration|login|jms\/|gz\/)/i
+const AUTH_PARAMS = ['confirmation_url', 'go', 'redirect_url', 'url', 'return_url']
+
+function unwrapAuthRedirect(url) {
+	const u = new URL(url)
+	if (!AUTH_PATH.test(u.pathname)) return url
+	for (const param of AUTH_PARAMS) {
+		const value = u.searchParams.get(param)
+		if (!value) continue
+		try {
+			const inner = new URL(value, u.origin).toString()
+			if (marketplaceOf(inner) === 'ml') return unwrapAuthRedirect(inner)
+		} catch {}
+	}
+	return null
+}
+
 // Página "social" (vitrine de outro afiliado): procura o link do produto dentro do HTML.
 async function productFromSocialPage(url) {
 	try {
 		const { html } = await fetchText(url)
 		const text = decodeHtml(html)
 		const candidates = text.match(/https?:\/\/(?:www\.|produto\.|lista\.)?mercadolivre\.com\.br\/[^"'\s<>\\]*MLB-?\d{6,}[^"'\s<>\\]*/gi) || []
-		const product = candidates.find(c => !c.includes('/social/'))
+		const product = candidates.find(c => {
+			try {
+				return isMlProductUrl(c) && !c.includes('/social/')
+			} catch {
+				return false
+			}
+		})
 		if (product) return product
 		const id = text.match(/MLB-?\d{6,}/i)
 		if (id) return `https://www.mercadolivre.com.br/p/${id[0].replace('-', '')}`
@@ -108,7 +132,10 @@ async function productFromSocialPage(url) {
 
 export async function convertMercadoLivre(url, { mattWord, mattTool }) {
 	if (!mattWord || !mattTool) return { ok: false, reason: 'Tag do Mercado Livre não configurada' }
-	let finalUrl = await expandUrl(url)
+	let finalUrl = unwrapAuthRedirect(await expandUrl(url))
+	// Bloqueado pelo antibot sem o produto no redirecionamento: usa o link original se ele já for do produto
+	if (!finalUrl) finalUrl = isMlProductUrl(url) ? url : null
+	if (!finalUrl) return { ok: false, reason: 'O Mercado Livre bloqueou a consulta desse link', finalUrl: url }
 	if (!isMlProductUrl(finalUrl)) {
 		const product = await productFromSocialPage(finalUrl)
 		if (!product) return { ok: false, reason: 'Não encontrei o produto do Mercado Livre nesse link', finalUrl }
