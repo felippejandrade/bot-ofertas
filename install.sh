@@ -11,6 +11,16 @@ echo "==> Instalando dependências do sistema"
 sudo apt-get update -y
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git curl iptables-persistent
 
+# Máquinas com 1 GB (ex.: Google Cloud e2-micro) precisam de swap para instalar sem travar
+if [ "$(awk '/MemTotal/ {print $2}' /proc/meminfo)" -lt 1500000 ] && ! swapon --show | grep -q .; then
+	echo "==> Criando 1 GB de swap"
+	sudo fallocate -l 1G /swapfile
+	sudo chmod 600 /swapfile
+	sudo mkswap /swapfile >/dev/null
+	sudo swapon /swapfile
+	echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null
+fi
+
 if ! command -v node >/dev/null || [ "$(node -p 'process.versions.node.split(".")[0]')" -lt 20 ]; then
 	echo "==> Instalando Node.js 22"
 	curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -

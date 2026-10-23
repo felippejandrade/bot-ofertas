@@ -24,7 +24,7 @@ Depois é só abrir http://localhost:3000.
 
 ## Rodar na nuvem
 
-Veja o [GUIA-ORACLE.md](GUIA-ORACLE.md).
+Veja o [GUIA-GOOGLE.md](GUIA-GOOGLE.md) (Google Cloud) ou o [GUIA-ORACLE.md](GUIA-ORACLE.md) (Oracle Cloud).
 
 ## Estrutura
 
