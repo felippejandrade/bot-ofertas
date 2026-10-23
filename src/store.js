@@ -13,7 +13,7 @@ const DEFAULT_CONFIG = {
 	enabled: false,
 	sourceGroups: [], // até 2 grupos de origem: [{ id, name }]
 	targetGroup: null, // { id, name }
-	mercadoLivre: { enabled: true, mattWord: '', mattTool: '' },
+	mercadoLivre: { enabled: true, mattWord: '', mattTool: '', shortLinks: true },
 	amazon: { enabled: false, tag: '' },
 	delaySeconds: 30, // intervalo mínimo entre envios
 	dedupHours: 12, // não repete o mesmo produto dentro desse período

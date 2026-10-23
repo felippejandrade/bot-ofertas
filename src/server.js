@@ -3,6 +3,7 @@ import crypto from 'node:crypto'
 import path from 'node:path'
 import express from 'express'
 import { convertLink, convertMessage } from './links.js'
+import { connectMeli, disconnectMeli, getMeliSession } from './meli.js'
 import { getConfig, getHistory, updateConfig } from './store.js'
 import { connect, getState, logout, refreshGroups, sendToTarget } from './whatsapp.js'
 
@@ -74,6 +75,19 @@ app.post('/api/send-test', async (req, res) => {
 	} catch (err) {
 		res.status(400).json({ erro: err.message })
 	}
+})
+
+app.get('/api/meli', (req, res) => res.json(getMeliSession()))
+
+// Abre o Chrome para o login no Mercado Livre; o painel acompanha pelo GET /api/meli
+app.post('/api/meli/connect', (req, res) => {
+	connectMeli().catch(err => console.error('Falha ao conectar no Mercado Livre:', err))
+	res.json({ ok: true })
+})
+
+app.post('/api/meli/disconnect', (req, res) => {
+	disconnectMeli()
+	res.json({ ok: true })
 })
 
 app.post('/api/logout', async (req, res) => {

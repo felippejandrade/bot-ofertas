@@ -94,6 +94,13 @@
 			<div><label for="mattWord">matt_word (seu apelido)</label><input id="mattWord" type="text" placeholder="ex.: anfe5611342"></div>
 			<div><label for="mattTool">matt_tool (seu número)</label><input id="mattTool" type="text" placeholder="ex.: 27164927"></div>
 		</div>
+		<label class="check"><input type="checkbox" id="mlShort"> Usar link curto oficial (meli.la)</label>
+		<p class="muted">Para gerar meli.la, o bot usa a sua sessão de afiliado do Mercado Livre. Clique em conectar, faça login na janela do Chrome que abrir e ela fecha sozinha. Sem sessão (ou se ela expirar), o bot envia o link grande, que também tem os seus códigos.</p>
+		<div class="muted">Sessão do Mercado Livre: <strong id="meliStatus">…</strong></div>
+		<div class="actions">
+			<button class="secondary" onclick="connectMeli()">Conectar Mercado Livre</button>
+			<button class="danger" id="meliOff" onclick="disconnectMeli()">Desconectar</button>
+		</div>
 		<label class="check"><input type="checkbox" id="amzEnabled"> Amazon</label>
 		<label for="amzTag">Tag da Amazon</label>
 		<input id="amzTag" type="text" placeholder="ex.: seunome-20">
@@ -175,6 +182,8 @@
 		pollStatus()
 		loadHistory()
 		setInterval(pollStatus, 3000)
+		pollMeli()
+		setInterval(pollMeli, 4000)
 		setInterval(loadHistory, 10000)
 	}
 
@@ -224,6 +233,7 @@
 		$('mlEnabled').checked = config.mercadoLivre.enabled
 		$('mattWord').value = config.mercadoLivre.mattWord
 		$('mattTool').value = config.mercadoLivre.mattTool
+		$('mlShort').checked = config.mercadoLivre.shortLinks
 		$('amzEnabled').checked = config.amazon.enabled
 		$('amzTag').value = config.amazon.tag
 		$('delay').value = config.delaySeconds
@@ -249,7 +259,7 @@
 			config = await api('/config', {
 				sourceGroups: config.sourceGroups,
 				targetGroup: target ? { id: target.id, name: target.name } : null,
-				mercadoLivre: { enabled: $('mlEnabled').checked, mattWord: $('mattWord').value, mattTool: $('mattTool').value },
+				mercadoLivre: { enabled: $('mlEnabled').checked, mattWord: $('mattWord').value, mattTool: $('mattTool').value, shortLinks: $('mlShort').checked },
 				amazon: { enabled: $('amzEnabled').checked, tag: $('amzTag').value },
 				delaySeconds: $('delay').value,
 				dedupHours: $('dedup').value,
@@ -264,6 +274,25 @@
 		} catch (e) { toast(e.message) }
 	}
 
+	async function pollMeli() {
+		const m = await api('/meli').catch(() => null)
+		if (!m) return
+		const labels = { conectado: 'conectada ✅', desconectado: 'não conectada', aguardando_login: 'aguardando login na janela do Chrome…', expirado: 'expirada, conecte de novo' }
+		$('meliStatus').textContent = (labels[m.status] || m.status) + (m.erro ? ` (${m.erro})` : '')
+		$('meliOff').classList.toggle('hidden', m.status !== 'conectado' && m.status !== 'expirado')
+	}
+
+	async function connectMeli() {
+		await api('/meli/connect', {}).catch(e => toast(e.message))
+		toast('Abrindo o Chrome: faça login no Mercado Livre')
+		pollMeli()
+	}
+
+	async function disconnectMeli() {
+		await api('/meli/disconnect', {}).catch(e => toast(e.message))
+		pollMeli()
+	}
+
 	async function sendTest() {
 		try { await api('/send-test', {}); toast('Mensagem de teste enviada') } catch (e) { toast(e.message) }
 	}
@@ -275,7 +304,7 @@
 		try {
 			const r = await api('/test', { texto: $('testIn').value })
 			if (r.link) {
-				out.textContent = r.link.ok ? `✅ Link convertido:\n${r.link.url}` : `❌ ${r.link.reason}${r.link.finalUrl ? '\nLink final: ' + r.link.finalUrl : ''}`
+				out.textContent = r.link.ok ? `✅ Link convertido${r.link.short ? ' (curto oficial)' : ''}:\n${r.link.url}` : `❌ ${r.link.reason}${r.link.finalUrl ? '\nLink final: ' + r.link.finalUrl : ''}`
 			} else {
 				const m = r.mensagem
 				out.textContent = (m.send ? `✅ Seria enviada assim${m.usedTemplate ? ' (mensagem padrão)' : ' (texto original)'}:\n\n` : '⚠️ Esta mensagem não seria enviada.\n\n') + m.text +

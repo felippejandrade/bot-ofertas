@@ -1,4 +1,5 @@
 // Encontra links em uma mensagem e troca pelos links de afiliado configurados.
+import { createShortLink } from './meli.js'
 import { applyTemplate } from './template.js'
 
 const URL_REGEX = /https?:\/\/[^\s<>"']+/gi
@@ -131,7 +132,7 @@ async function productFromSocialPage(url) {
 	return null
 }
 
-export async function convertMercadoLivre(url, { mattWord, mattTool }) {
+export async function convertMercadoLivre(url, { mattWord, mattTool, shortLinks }) {
 	if (!mattWord || !mattTool) return { ok: false, reason: 'Tag do Mercado Livre não configurada' }
 	let finalUrl = unwrapAuthRedirect(await expandUrl(url))
 	// Bloqueado pelo antibot sem o produto no redirecionamento: usa o link original se ele já for do produto
@@ -144,9 +145,11 @@ export async function convertMercadoLivre(url, { mattWord, mattTool }) {
 	}
 	const u = new URL(finalUrl)
 	const clean = new URL(u.origin + u.pathname)
+	// Link curto oficial (meli.la) quando há sessão do ML conectada; senão, o link do produto com os parâmetros
+	const short = shortLinks ? await createShortLink(clean.toString(), mattWord) : null
 	clean.searchParams.set('matt_word', mattWord)
 	clean.searchParams.set('matt_tool', mattTool)
-	return { ok: true, url: clean.toString(), productId: mlItemId(finalUrl), finalUrl }
+	return { ok: true, url: short || clean.toString(), short: Boolean(short), productId: mlItemId(finalUrl), finalUrl }
 }
 
 // ---------- Amazon ----------
